@@ -1,5 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 Working Mayhem
+SPDX-License-Identifier: CC-BY-4.0
+-->
 # CHIMERA
-# SPDX-License-Identifier: CC BY 4.0
 
 ## Modular Hardware-in-the-Loop (HIL) Engineering Platform
 
@@ -18,6 +21,8 @@ Initial development focuses on the STM32G474-based M01 module, firmware architec
 ## Licensing
 
 This repository uses a multi-license structure. Licensing is determined by file location and any explicitly declared file-level license.
+
+Machine-readable license mapping is defined in `REUSE.toml`; full license texts are in `LICENSES/`. Compliance is checked in CI with [REUSE](https://reuse.software).
 
 ### Software — Apache License 2.0
 
@@ -39,7 +44,7 @@ CERN-OHL-W-2.0 is the proposed license. Hardware designs are not released under 
 
 Third-party libraries, vendor firmware, reference designs, and other external materials retain their respective licenses. Their inclusion does not change the original licensing terms.
 
-### Project Organization
+## Project Organization
 
 * firmware/ — Embedded firmware and hardware abstraction
 * software/ — Host-side utilities and orchestration
