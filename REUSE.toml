@@ -1,0 +1,26 @@
+version = 1
+
+[[annotations]]
+path = ["firmware/**", "software/**", "tests/**", ".github/**", ".gitignore"]
+precedence = "closest"            # a file's own SPDX header wins if present
+SPDX-FileCopyrightText = "2026 Working Mayhem"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ["docs/**", "README.md"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Working Mayhem"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "hardware/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Working Mayhem"
+SPDX-License-Identifier = "LicenseRef-Hardware-Pending"
+
+# Third-party — one block per vendor tree, with its real license. Example:
+[[annotations]]
+path = ["firmware/Drivers/STM32G4xx_HAL_Driver/**", "firmware/Drivers/CMSIS/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "STMicroelectronics / Arm Limited"
+SPDX-License-Identifier = "BSD-3-Clause OR Apache-2.0"   # verify against each tree's LICENSE file
