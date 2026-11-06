@@ -1,4 +1,5 @@
 # CHIMERA
+# SPDX-License-Identifier: CC BY 4.0
 
 ## Modular Hardware-in-the-Loop (HIL) Engineering Platform
 

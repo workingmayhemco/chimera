@@ -1,4 +1,4 @@
-#
+# SPDX-License-Identifier: CC BY 4.0
 
 ## CHIMERA-M01-FW-001
 
