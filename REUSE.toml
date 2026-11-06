@@ -19,11 +19,27 @@ SPDX-FileCopyrightText = "2026 Working Mayhem"
 SPDX-License-Identifier = "LicenseRef-Hardware-Pending"
 
 # Third-party — one block per vendor tree, with its real license. Example:
+
+# STM32G4 HAL/LL — STMicroelectronics
 [[annotations]]
-path = [
-    "firmware/modules/m01/Drivers/STM32G4xx_HAL_Driver/**",
-    "firmware/modules/m01/Drivers/CMSIS/**"
-]
+path = "firmware/modules/m01/CHIMERA_M01/Drivers/STM32G4xx_HAL_Driver/**"
 precedence = "override"
-SPDX-FileCopyrightText = "STMicroelectronics / Arm Limited"
-SPDX-License-Identifier = "BSD-3-Clause OR Apache-2.0"   # verify against each tree's LICENSE file
+SPDX-FileCopyrightText = "STMicroelectronics"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# CMSIS Core and STM32G4 Device
+[[annotations]]
+path = "firmware/modules/m01/CHIMERA_M01/Drivers/CMSIS/**"
+precedence = "override"
+SPDX-FileCopyrightText = [
+    "Arm Limited",
+    "STMicroelectronics"
+]
+SPDX-License-Identifier = "Apache-2.0"
+
+# STM32G4 Nucleo BSP — STMicroelectronics
+[[annotations]]
+path = "firmware/modules/m01/CHIMERA_M01/Drivers/BSP/STM32G4xx_Nucleo/**"
+precedence = "override"
+SPDX-FileCopyrightText = "STMicroelectronics"
+SPDX-License-Identifier = "BSD-3-Clause"
