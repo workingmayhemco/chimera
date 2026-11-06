@@ -1,3 +1,7 @@
+# Local development files
+# used to fix issues before pushing
+fix.md
+
 # Prerequisites
 *.d
 
