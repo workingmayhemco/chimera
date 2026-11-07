@@ -91,7 +91,23 @@ int main(void)
   MX_GPIO_Init();
   MX_LPUART1_UART_Init();
   /* USER CODE BEGIN 2 */
-  BSP_LED_Init(LED2);
+
+  // Create the message we want to send over UART
+  uint8_t message[] = "CHIMERA M01 Boot\r\n";
+
+  // Transmit the message and capture the result
+  HAL_StatusTypeDef result =HAL_UART_Transmit(
+    &hlpuart1,
+    message,
+    sizeof(message) - 1,
+    1000
+  );
+
+  // Check whether the transmission failed
+  if (result != HAL_OK)
+  {
+    Error_Handler();
+  }
 
   /* USER CODE END 2 */
 
@@ -109,7 +125,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    BSP_LED_Toggle(LED2);
+    BSP_LED_Toggle(LED_GREEN);
     HAL_Delay(500);
   }
   /* USER CODE END 3 */
