@@ -24,7 +24,13 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Firmware Bring-up
 
-- [x] Generate STM32CubeIDE proejct for NUCLEO-G474RE
+- [x] Generate STM32CubeMX CMake project for NUCLEO-G474RE
+- [x] Build firmware with ARM GCC on Windows
+- [x] Build firmware with ARM GCC on Ubuntu
+- [x] Flash and verify firmware using ST-LINK
+- [x] Validate onboard LED GPIO operation
+- [x] Validate LPUART1 transmission at 115200 baud
+- [x] Receive UART boot message on Ubuntu
 - [ ] Implement serial command parser
 - [ ] Implement operating-state machine
 - [ ] Implement timer-based LED pulse scheduling
