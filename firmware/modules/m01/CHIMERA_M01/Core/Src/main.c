@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <string.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -96,7 +97,7 @@ int main(void)
   uint8_t message[] = "CHIMERA M01 Boot\r\n";
 
   // Transmit the message and capture the result
-  HAL_StatusTypeDef result =HAL_UART_Transmit(
+  HAL_StatusTypeDef result = HAL_UART_Transmit(
     &hlpuart1,
     message,
     sizeof(message) - 1,
@@ -125,8 +126,34 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    BSP_LED_Toggle(LED_GREEN);
-    HAL_Delay(500);
+    // BSP_LED_Toggle(LED_GREEN);
+    // HAL_Delay(500);
+
+    uint8_t command[4];
+
+    // Wait until four bytes are received
+    HAL_StatusTypeDef result = HAL_UART_Receive(
+      &hlpuart1,
+      command,
+      sizeof(command),
+      HAL_MAX_DELAY
+    );
+
+    // CHeck whether we received "PING"
+    if (result == HAL_OK)
+    {
+      if (memcmp(command, "PING", 4) == 0)
+      {
+        uint8_t response[] = "PONG\r\n";
+
+        HAL_UART_Transmit(
+          &hlpuart1,
+          response,
+          sizeof(response) - 1,
+          1000
+        );
+      }
+    }
   }
   /* USER CODE END 3 */
 }
