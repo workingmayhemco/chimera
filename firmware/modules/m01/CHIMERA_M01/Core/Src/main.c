@@ -95,6 +95,9 @@ int main(void)
 
   // Create the message we want to send over UART
   uint8_t message[] = "CHIMERA M01 Boot\r\n";
+  uint8_t incoming = 0;
+  uint8_t command[16];
+  uint8_t index = 0;
 
   // Transmit the message and capture the result
   HAL_StatusTypeDef result = HAL_UART_Transmit(
@@ -129,29 +132,42 @@ int main(void)
     // BSP_LED_Toggle(LED_GREEN);
     // HAL_Delay(500);
 
-    uint8_t command[4];
-
     // Wait until four bytes are received
     HAL_StatusTypeDef result = HAL_UART_Receive(
       &hlpuart1,
-      command,
-      sizeof(command),
+      &incoming,
+      1,
       HAL_MAX_DELAY
     );
 
-    // CHeck whether we received "PING"
+    // Check whether we received "PING"
     if (result == HAL_OK)
     {
-      if (memcmp(command, "PING", 4) == 0)
+      if (incoming == '\r' || incoming == '\n')
       {
-        uint8_t response[] = "PONG\r\n";
+        command[index] = '\0';
 
-        HAL_UART_Transmit(
-          &hlpuart1,
-          response,
-          sizeof(response) - 1,
-          1000
-        );
+        if (index > 0)
+        {
+          if (strcmp((char *)command, "PING") == 0)
+          {
+            uint8_t response[] = "PONG\r\n";
+
+            HAL_UART_Transmit(
+              &hlpuart1,
+              response,
+              sizeof(response) - 1,
+              1000
+            );
+          }
+        }
+
+        index = 0;
+      }
+      else if (index < sizeof(command) - 1)
+      {
+        command[index] = incoming;
+        index++;
       }
     }
   }
