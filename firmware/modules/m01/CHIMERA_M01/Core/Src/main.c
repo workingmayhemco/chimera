@@ -18,10 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <string.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
+#include <string.h>
 #include "stm32g4xx_nucleo.h"
 /* USER CODE END Includes */
 
@@ -53,7 +54,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+HAL_StatusTypeDef SendResponse(const char *message);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -92,12 +93,18 @@ int main(void)
   MX_GPIO_Init();
   MX_LPUART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  /* Initialize led */
+  BSP_LED_Init(LED_GREEN);
+
+  /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
+  BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
 
   // Create the message we want to send over UART
   uint8_t message[] = "CHIMERA M01 Boot\r\n";
   uint8_t incoming = 0;
   uint8_t command[16];
   uint8_t index = 0;
+  uint8_t command_overflow = 0;
 
   // Transmit the message and capture the result
   HAL_StatusTypeDef result = HAL_UART_Transmit(
@@ -115,12 +122,6 @@ int main(void)
 
   /* USER CODE END 2 */
 
-  /* Initialize led */
-  BSP_LED_Init(LED_GREEN);
-
-  /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
-  BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
-
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -132,7 +133,7 @@ int main(void)
     // BSP_LED_Toggle(LED_GREEN);
     // HAL_Delay(500);
 
-    // Wait until four bytes are received
+    // Wait for a single byte to be received over UART
     HAL_StatusTypeDef result = HAL_UART_Receive(
       &hlpuart1,
       &incoming,
@@ -147,27 +148,73 @@ int main(void)
       {
         command[index] = '\0';
 
-        if (index > 0)
+        if (command_overflow == 1)
+        {
+          if (SendResponse("ERROR: COMMAND TOO LONG\r\n") != HAL_OK)
+          {
+            Error_Handler();
+          }
+        }
+        else if (index > 0)
         {
           if (strcmp((char *)command, "PING") == 0)
           {
-            uint8_t response[] = "PONG\r\n";
+            if (SendResponse("PONG\r\n") != HAL_OK)
+            {
+              Error_Handler();
+            }
+          }
+          else if (strcmp((char *)command, "STATUS") == 0)
+          {
+            uint32_t uptime_sec = HAL_GetTick() / 1000U;
+            uint32_t uptime_min = uptime_sec / 60U;
+            uint32_t hours = uptime_min / 60U;
+            uint32_t minutes = uptime_min % 60U;
+            uint32_t seconds = uptime_sec % 60U;
+            char response[128];
 
-            HAL_UART_Transmit(
-              &hlpuart1,
+            snprintf(
               response,
-              sizeof(response) - 1,
-              1000
+              sizeof(response),
+              "UPTIME: %02lu:%02lu:%02lu\r\n",
+              (unsigned long)hours,
+              (unsigned long)minutes,
+              (unsigned long)seconds
             );
+            
+            if (SendResponse(response) != HAL_OK)
+            {
+              Error_Handler();
+            }
+          }
+          else if (strcmp((char *)command, "HELP") == 0)
+          {
+            if (SendResponse("COMMANDS: PING, STATUS, HELP\r\n") != HAL_OK)
+            {
+              Error_Handler();
+            }
+          }
+          else
+          {
+            if (SendResponse("UNKNOWN COMMAND\r\n") != HAL_OK)
+            {
+              Error_Handler();
+            }
           }
         }
 
         index = 0;
+        command_overflow = 0;
       }
       else if (index < sizeof(command) - 1)
       {
         command[index] = incoming;
         index++;
+      }
+      else
+      { 
+        // Command exceeded buffer size
+        command_overflow = 1;
       }
     }
   }
@@ -290,6 +337,15 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+HAL_StatusTypeDef SendResponse(const char *message)
+{
+  return HAL_UART_Transmit(
+    &hlpuart1,
+    (const uint8_t *)message,
+    strlen(message),
+    1000
+  );
+}
 
 /* USER CODE END 4 */
 
