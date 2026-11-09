@@ -1,3 +1,7 @@
+/*
+SPDX-FileCopyrightText: 2026 Working Mayhem
+SPDX-License-Identifier: Apache-2.0
+*/
 #ifndef CHIMERA_COMMANDS_H
 #define CHIMERA_COMMANDS_H
 

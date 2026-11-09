@@ -1,3 +1,7 @@
+/*
+SPDX-FileCopyrightText: 2026 Working Mayhem
+SPDX-License-Identifier: Apache-2.0
+*/
 #include "chimera_commands.h"
 #include <string.h>
 
