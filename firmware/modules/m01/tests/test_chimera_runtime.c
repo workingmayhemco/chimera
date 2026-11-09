@@ -41,6 +41,32 @@ int main(void)
 
     assert(ret >= (int)sizeof(small_response));
 
+    char small_response2[6];
+
+    ret = ProcessCommand(
+        "PING",
+        0U,
+        small_response2,
+        sizeof(small_response2)
+    );
+
+    assert(ret == 6);
+    assert(ret >= (int)sizeof(small_response2));
+    assert(strcmp(small_response2, "PONG\r") == 0);
+
+    char exact_response[7];
+
+    ret = ProcessCommand(
+        "PING",
+        0U,
+        exact_response,
+        sizeof(exact_response)
+    );
+
+    assert(ret == 6);
+    assert((size_t)ret < sizeof(exact_response));
+    assert(strcmp(exact_response, "PONG\r\n") == 0);
+
     printf("PASS: ProcessCommand\n");
 
     return 0;
