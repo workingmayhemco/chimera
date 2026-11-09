@@ -55,6 +55,7 @@ static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 HAL_StatusTypeDef SendResponse(const char *message);
+void ProcessCommand(const char *command);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -157,50 +158,7 @@ int main(void)
         }
         else if (index > 0)
         {
-          if (strcmp((char *)command, "PING") == 0)
-          {
-            if (SendResponse("PONG\r\n") != HAL_OK)
-            {
-              Error_Handler();
-            }
-          }
-          else if (strcmp((char *)command, "STATUS") == 0)
-          {
-            uint32_t uptime_sec = HAL_GetTick() / 1000U;
-            uint32_t uptime_min = uptime_sec / 60U;
-            uint32_t hours = uptime_min / 60U;
-            uint32_t minutes = uptime_min % 60U;
-            uint32_t seconds = uptime_sec % 60U;
-            char response[128];
-
-            snprintf(
-              response,
-              sizeof(response),
-              "UPTIME: %02lu:%02lu:%02lu\r\n",
-              (unsigned long)hours,
-              (unsigned long)minutes,
-              (unsigned long)seconds
-            );
-            
-            if (SendResponse(response) != HAL_OK)
-            {
-              Error_Handler();
-            }
-          }
-          else if (strcmp((char *)command, "HELP") == 0)
-          {
-            if (SendResponse("COMMANDS: PING, STATUS, HELP\r\n") != HAL_OK)
-            {
-              Error_Handler();
-            }
-          }
-          else
-          {
-            if (SendResponse("UNKNOWN COMMAND\r\n") != HAL_OK)
-            {
-              Error_Handler();
-            }
-          }
+          ProcessCommand((const char *)command);
         }
 
         index = 0;
@@ -345,6 +303,54 @@ HAL_StatusTypeDef SendResponse(const char *message)
     strlen(message),
     1000
   );
+}
+
+void ProcessCommand(const char *command)
+{ 
+  if (strcmp(command, "PING") == 0)
+  {
+    if (SendResponse("PONG\r\n") != HAL_OK)
+    {
+      Error_Handler();
+    }
+  }
+  else if (strcmp(command, "STATUS") == 0)
+  {
+    uint32_t uptime_sec = HAL_GetTick() / 1000U;
+    uint32_t uptime_min = uptime_sec / 60U;
+    uint32_t hours = uptime_min / 60U;
+    uint32_t minutes = uptime_min % 60U;
+    uint32_t seconds = uptime_sec % 60U;
+    char response[128];
+
+    snprintf(
+      response,
+      sizeof(response),
+      "UPTIME: %02lu:%02lu:%02lu\r\n",
+      (unsigned long)hours,
+      (unsigned long)minutes,
+      (unsigned long)seconds
+    );
+    
+    if (SendResponse(response) != HAL_OK)
+    {
+      Error_Handler();
+    }
+  }
+  else if (strcmp(command, "HELP") == 0)
+  {
+    if (SendResponse("COMMANDS: PING, STATUS, HELP\r\n") != HAL_OK)
+    {
+      Error_Handler();
+    }
+  }
+  else
+  {
+    if (SendResponse("UNKNOWN COMMAND\r\n") != HAL_OK)
+    {
+      Error_Handler();
+    }
+  }
 }
 
 /* USER CODE END 4 */
