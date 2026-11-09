@@ -23,8 +23,9 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
-#include "stm32g4xx_nucleo.h"
 #include "chimera_commands.h"
+#include "chimera_status.h"
+#include "stm32g4xx_nucleo.h"
 
 /* USER CODE END Includes */
 
@@ -57,7 +58,7 @@ static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 HAL_StatusTypeDef SendResponse(const char *message);
-void ProcessCommand(const char *command);
+void ProcessCommand(const char *command, uint32_t uptime_ms);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -160,7 +161,7 @@ int main(void)
         }
         else if (index > 0)
         {
-          ProcessCommand((const char *)command);
+          ProcessCommand((const char *)command, HAL_GetTick());
         }
 
         index = 0;
@@ -307,7 +308,7 @@ HAL_StatusTypeDef SendResponse(const char *message)
   );
 }
 
-void ProcessCommand(const char *command)
+void ProcessCommand(const char *command, uint32_t uptime_ms)
 { 
   ChimeraCommand parsed = ChimeraCommands_Parse(command);
   HAL_StatusTypeDef result;
@@ -324,21 +325,21 @@ void ProcessCommand(const char *command)
 
     case CHIMERA_CMD_STATUS:
     {
-      uint32_t uptime_sec = HAL_GetTick() / 1000U;
-      uint32_t uptime_min = uptime_sec / 60U;
-      uint32_t hours = uptime_min / 60U;
-      uint32_t minutes = uptime_min % 60U;
-      uint32_t seconds = uptime_sec % 60U;
       char response[128];
 
-      snprintf(
+      int written = FormatStatus(
+        uptime_ms,
         response,
-        sizeof(response),
-        "UPTIME: %02lu:%02lu:%02lu\r\n",
-        (unsigned long)hours,
-        (unsigned long)minutes,
-        (unsigned long)seconds
+        sizeof(response)
       );
+
+      if (written < 0 || (size_t)written >= sizeof(response))
+      {
+        Error_Handler();
+      }
+
+      // FormatStatus(uptime_ms, response, sizeof(response));
+
       result = SendResponse(response);
       break;
     }
