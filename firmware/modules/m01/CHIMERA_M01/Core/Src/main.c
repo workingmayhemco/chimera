@@ -24,6 +24,8 @@
 #include <stdio.h>
 #include <string.h>
 #include "stm32g4xx_nucleo.h"
+#include "chimera_commands.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -307,49 +309,48 @@ HAL_StatusTypeDef SendResponse(const char *message)
 
 void ProcessCommand(const char *command)
 { 
-  if (strcmp(command, "PING") == 0)
-  {
-    if (SendResponse("PONG\r\n") != HAL_OK)
-    {
-      Error_Handler();
-    }
-  }
-  else if (strcmp(command, "STATUS") == 0)
-  {
-    uint32_t uptime_sec = HAL_GetTick() / 1000U;
-    uint32_t uptime_min = uptime_sec / 60U;
-    uint32_t hours = uptime_min / 60U;
-    uint32_t minutes = uptime_min % 60U;
-    uint32_t seconds = uptime_sec % 60U;
-    char response[128];
+  ChimeraCommand parsed = ChimeraCommands_Parse(command);
+  HAL_StatusTypeDef result;
 
-    snprintf(
-      response,
-      sizeof(response),
-      "UPTIME: %02lu:%02lu:%02lu\r\n",
-      (unsigned long)hours,
-      (unsigned long)minutes,
-      (unsigned long)seconds
-    );
+  switch (parsed)
+  {
+    case CHIMERA_CMD_PING:
+      result = SendResponse("PONG\r\n");
+      break;
     
-    if (SendResponse(response) != HAL_OK)
+    case CHIMERA_CMD_HELP:
+      result = SendResponse("COMMANDS: PING, HELP, STATUS\r\n");
+      break;
+
+    case CHIMERA_CMD_STATUS:
     {
-      Error_Handler();
+      uint32_t uptime_sec = HAL_GetTick() / 1000U;
+      uint32_t uptime_min = uptime_sec / 60U;
+      uint32_t hours = uptime_min / 60U;
+      uint32_t minutes = uptime_min % 60U;
+      uint32_t seconds = uptime_sec % 60U;
+      char response[128];
+
+      snprintf(
+        response,
+        sizeof(response),
+        "UPTIME: %02lu:%02lu:%02lu\r\n",
+        (unsigned long)hours,
+        (unsigned long)minutes,
+        (unsigned long)seconds
+      );
+      result = SendResponse(response);
+      break;
     }
+    
+    default:
+      result = SendResponse("UNKNOWN COMMAND\r\n");
+      break;
   }
-  else if (strcmp(command, "HELP") == 0)
+
+  if (result != HAL_OK)
   {
-    if (SendResponse("COMMANDS: PING, STATUS, HELP\r\n") != HAL_OK)
-    {
-      Error_Handler();
-    }
-  }
-  else
-  {
-    if (SendResponse("UNKNOWN COMMAND\r\n") != HAL_OK)
-    {
-      Error_Handler();
-    }
+    Error_Handler();
   }
 }
 
