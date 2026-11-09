@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "chimera_commands.h"
+#include "chimera_runtime.h"
 #include "chimera_status.h"
 #include "stm32g4xx_nucleo.h"
 
@@ -58,7 +59,7 @@ static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 HAL_StatusTypeDef SendResponse(const char *message);
-void ProcessCommand(const char *command, uint32_t uptime_ms);
+// void ProcessCommand(const char *command, uint32_t uptime_ms);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -161,7 +162,25 @@ int main(void)
         }
         else if (index > 0)
         {
-          ProcessCommand((const char *)command, HAL_GetTick());
+          // ProcessCommand((const char *)command, HAL_GetTick());
+          char response[128];
+
+          int written = ProcessCommand(
+            (const char *)command,
+            HAL_GetTick(),
+            response,
+            sizeof(response)
+          );
+
+          if (written < 0 || (size_t)written >= sizeof(response))
+          {
+            Error_Handler();
+          }
+
+          if (SendResponse(response) != HAL_OK)
+          {
+            Error_Handler();
+          }
         }
 
         index = 0;
@@ -308,52 +327,52 @@ HAL_StatusTypeDef SendResponse(const char *message)
   );
 }
 
-void ProcessCommand(const char *command, uint32_t uptime_ms)
-{ 
-  ChimeraCommand parsed = ChimeraCommands_Parse(command);
-  HAL_StatusTypeDef result;
+// void ProcessCommand(const char *command, uint32_t uptime_ms)
+// { 
+//   ChimeraCommand parsed = ChimeraCommands_Parse(command);
+//   HAL_StatusTypeDef result;
 
-  switch (parsed)
-  {
-    case CHIMERA_CMD_PING:
-      result = SendResponse("PONG\r\n");
-      break;
+//   switch (parsed)
+//   {
+//     case CHIMERA_CMD_PING:
+//       result = SendResponse("PONG\r\n");
+//       break;
     
-    case CHIMERA_CMD_HELP:
-      result = SendResponse("COMMANDS: PING, HELP, STATUS\r\n");
-      break;
+//     case CHIMERA_CMD_HELP:
+//       result = SendResponse("COMMANDS: PING, HELP, STATUS\r\n");
+//       break;
 
-    case CHIMERA_CMD_STATUS:
-    {
-      char response[128];
+//     case CHIMERA_CMD_STATUS:
+//     {
+//       char response[128];
 
-      int written = FormatStatus(
-        uptime_ms,
-        response,
-        sizeof(response)
-      );
+//       int written = FormatStatus(
+//         uptime_ms,
+//         response,
+//         sizeof(response)
+//       );
 
-      if (written < 0 || (size_t)written >= sizeof(response))
-      {
-        Error_Handler();
-      }
+//       if (written < 0 || (size_t)written >= sizeof(response))
+//       {
+//         Error_Handler();
+//       }
 
-      // FormatStatus(uptime_ms, response, sizeof(response));
+//       // FormatStatus(uptime_ms, response, sizeof(response));
 
-      result = SendResponse(response);
-      break;
-    }
+//       result = SendResponse(response);
+//       break;
+//     }
     
-    default:
-      result = SendResponse("UNKNOWN COMMAND\r\n");
-      break;
-  }
+//     default:
+//       result = SendResponse("UNKNOWN COMMAND\r\n");
+//       break;
+//   }
 
-  if (result != HAL_OK)
-  {
-    Error_Handler();
-  }
-}
+//   if (result != HAL_OK)
+//   {
+//     Error_Handler();
+//   }
+// }
 
 /* USER CODE END 4 */
 

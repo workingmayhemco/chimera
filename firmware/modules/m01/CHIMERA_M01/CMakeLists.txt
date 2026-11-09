@@ -47,6 +47,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     ../App/Src/chimera_commands.c
     ../App/Src/chimera_status.c
+    ../App/Src/chimera_runtime.c
 )
 
 # Add include paths

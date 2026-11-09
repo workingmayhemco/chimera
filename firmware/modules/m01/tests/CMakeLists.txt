@@ -28,6 +28,18 @@ target_include_directories(test_chimera_status PRIVATE
     ../App/Inc
 )
 
+# Runtime test
+add_executable(test_chimera_runtime
+    test_chimera_runtime.c
+    ../App/Src/chimera_runtime.c
+    ../App/Src/chimera_commands.c
+    ../App/Src/chimera_status.c
+)
+
+target_include_directories(test_chimera_runtime PRIVATE
+    ../App/Inc
+)
+
 # Register tests with CTest
 add_test(
     NAME chimera_commands
@@ -37,6 +49,11 @@ add_test(
 add_test(
     NAME chimera_status
     COMMAND test_chimera_status
+)
+
+add_test(
+    NAME chimera_runtime
+    COMMAND test_chimera_runtime
 )
 
 add_compile_options(
