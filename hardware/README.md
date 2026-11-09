@@ -1,4 +1,4 @@
 <!--
 SPDX-FileCopyrightText: 2026 Working Mayhem
-SPDX-License-Identifier: LicenseRef-Hardware-Pending
+SPDX-License-Identifier: LicenseRef-Harware-Pending
 -->

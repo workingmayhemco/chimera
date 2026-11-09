@@ -20,10 +20,7 @@ SPDX-License-Identifier = "LicenseRef-Hardware-Pending"
 
 # Third-party — one block per vendor tree, with its real license. Example:
 [[annotations]]
-path = [
-    "firmware/modules/m01/Drivers/STM32G4xx_HAL_Driver/**",
-    "firmware/modules/m01/Drivers/CMSIS/**"
-]
+path = ["firmware/Drivers/STM32G4xx_HAL_Driver/**", "firmware/Drivers/CMSIS/**"]
 precedence = "override"
 SPDX-FileCopyrightText = "STMicroelectronics / Arm Limited"
 SPDX-License-Identifier = "BSD-3-Clause OR Apache-2.0"   # verify against each tree's LICENSE file
