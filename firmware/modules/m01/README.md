@@ -4,7 +4,33 @@ SPDX-License-Identifier: CC-BY-4.0
 -->
 # CHIMERA-M01-FW-001
 
-- [ ] Generate STM32CubeIDE proejct for NUCLEO-G474RE
+## Software Versions
+
+### Windows
+
+- cmake version 4.3.1
+- ninja version 1.13.2
+- arm-none-eabi-gcc version 14.3.1
+- arm-none-eabi-g++ version 14.3.1
+
+### Ubuntu 26.04.1 LTS
+
+- cmake version 4.2.3
+- ninja version 1.13.2
+- gcc version 15.2.0
+- g++ version 15.2.0
+- arm-none-eabi-gcc version 14.2.1
+- arm-none-eabi-g++ version 14.2.1
+
+## Firmware Bring-up
+
+- [x] Generate STM32CubeMX CMake project for NUCLEO-G474RE
+- [x] Build firmware with ARM GCC on Windows
+- [x] Build firmware with ARM GCC on Ubuntu
+- [x] Flash and verify firmware using ST-LINK
+- [x] Validate onboard LED GPIO operation
+- [x] Validate LPUART1 transmission at 115200 baud
+- [x] Receive UART boot message on Ubuntu
 - [ ] Implement serial command parser
 - [ ] Implement operating-state machine
 - [ ] Implement timer-based LED pulse scheduling
