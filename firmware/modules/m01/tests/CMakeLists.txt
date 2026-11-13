@@ -8,6 +8,13 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 enable_testing()
 
+add_compile_options(
+    -Wall
+    -Wextra
+    -Werror
+)
+
+
 # Command parser test
 add_executable(test_chimera_commands
     test_chimera_commands.c
@@ -50,6 +57,21 @@ target_include_directories(test_chimera_input PRIVATE
     ../App/Inc
 )
 
+# RX buffer test
+add_executable(test_chimera_rx_buffer
+    test_chimera_rx_buffer.c
+    ../App/Src/chimera_rx_buffer.c
+)
+
+target_include_directories(test_chimera_rx_buffer PRIVATE
+    ../App/Inc
+)
+
+add_test(
+    NAME chimera_rx_buffer
+    COMMAND test_chimera_rx_buffer
+)
+
 # Register tests with CTest
 add_test(
     NAME chimera_commands
@@ -71,8 +93,3 @@ add_test(
     COMMAND test_chimera_input
 )
 
-add_compile_options(
-    -Wall
-    -Wextra
-    -Werror
-)

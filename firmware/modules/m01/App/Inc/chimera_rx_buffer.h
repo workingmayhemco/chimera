@@ -8,14 +8,15 @@
 
  #include <stdint.h>
  #include <stdbool.h>
+ #include <stddef.h>
 
  #define CHIMERA_RX_BUFFER_SIZE 64U
 
  typedef struct
  {
     volatile uint8_t data[CHIMERA_RX_BUFFER_SIZE];
-    volatile size_t head;
-    volatile size_t tail;
+    volatile uint8_t head;
+    volatile uint8_t tail;
  } ChimeraRxBuffer;
 
  void ChimeraRx_Init(ChimeraRxBuffer *buffer);
