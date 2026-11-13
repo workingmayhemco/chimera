@@ -21,11 +21,11 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <stdio.h>
 #include <string.h>
-#include "chimera_commands.h"
+// #include "chimera_commands.h"
+#include "chimera_input.h"
 #include "chimera_runtime.h"
-#include "chimera_status.h"
+// #include "chimera_status.h"
 #include "stm32g4xx_nucleo.h"
 
 /* USER CODE END Includes */
@@ -107,9 +107,11 @@ int main(void)
   // Create the message we want to send over UART
   uint8_t message[] = "CHIMERA M01 Boot\r\n";
   uint8_t incoming = 0;
-  uint8_t command[16];
-  uint8_t index = 0;
-  uint8_t command_overflow = 0;
+  // uint8_t command[16];
+  // uint8_t index = 0;
+  // uint8_t command_overflow = 0;
+  ChimeraInput input;
+  ChimeraInput_Init(&input);
 
   // Transmit the message and capture the result
   HAL_StatusTypeDef result = HAL_UART_Transmit(
@@ -127,6 +129,12 @@ int main(void)
 
   /* USER CODE END 2 */
 
+  /* Initialize led */
+  BSP_LED_Init(LED_GREEN);
+
+  /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
+  BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -139,64 +147,101 @@ int main(void)
     // HAL_Delay(500);
 
     // Wait for a single byte to be received over UART
-    HAL_StatusTypeDef result = HAL_UART_Receive(
-      &hlpuart1,
-      &incoming,
-      1,
-      HAL_MAX_DELAY
+    // HAL_StatusTypeDef result = HAL_UART_Receive(
+    //   &hlpuart1,
+    //   &incoming,
+    //   1,
+    //   HAL_MAX_DELAY
+    // );
+    if (HAL_UART_Receive(&hlpuart1, &incoming, 1, HAL_MAX_DELAY) != HAL_OK)
+    {
+      Error_Handler();
+    }
+    
+    // Check whether we received "PING"
+    ChimeraInputResult input_result = ChimeraInput_Feed(
+      &input,
+      (char)incoming
     );
 
-    // Check whether we received "PING"
-    if (result == HAL_OK)
+    if (input_result == CHIMERA_INPUT_READY)
     {
-      if (incoming == '\r' || incoming == '\n')
+      char response[128];
+
+      int written = ProcessCommand(
+        input.command,
+        HAL_GetTick(),
+        response,
+        sizeof(response)
+      );
+
+      if (written < 0 || (size_t)written >= sizeof(response))
       {
-        command[index] = '\0';
-
-        if (command_overflow == 1)
-        {
-          if (SendResponse("ERROR: COMMAND TOO LONG\r\n") != HAL_OK)
-          {
-            Error_Handler();
-          }
-        }
-        else if (index > 0)
-        {
-          // ProcessCommand((const char *)command, HAL_GetTick());
-          char response[128];
-
-          int written = ProcessCommand(
-            (const char *)command,
-            HAL_GetTick(),
-            response,
-            sizeof(response)
-          );
-
-          if (written < 0 || (size_t)written >= sizeof(response))
-          {
-            Error_Handler();
-          }
-
-          if (SendResponse(response) != HAL_OK)
-          {
-            Error_Handler();
-          }
-        }
-
-        index = 0;
-        command_overflow = 0;
+        Error_Handler();
       }
-      else if (index < sizeof(command) - 1)
+
+      if (SendResponse(response) != HAL_OK)
       {
-        command[index] = incoming;
-        index++;
-      }
-      else
-      { 
-        // Command exceeded buffer size
-        command_overflow = 1;
+        Error_Handler();
       }
     }
+    else if (input_result == CHIMERA_INPUT_OVERFLOW)
+    {
+      if (SendResponse("ERROR: COMMAND TOO LONG\r\n") != HAL_OK)
+      {
+        Error_Handler();
+      }
+    }
+    // if (result == HAL_OK)
+    // {
+    //   if (incoming == '\r' || incoming == '\n')
+    //   {
+    //     command[index] = '\0';
+
+    //     if (command_overflow == 1)
+    //     {
+    //       if (SendResponse("ERROR: COMMAND TOO LONG\r\n") != HAL_OK)
+    //       {
+    //         Error_Handler();
+    //       }
+    //     }
+    //     else if (index > 0)
+    //     {
+    //       // ProcessCommand((const char *)command, HAL_GetTick());
+    //       char response[128];
+
+    //       int written = ProcessCommand(
+    //         (const char *)command,
+    //         HAL_GetTick(),
+    //         response,
+    //         sizeof(response)
+    //       );
+
+    //       if (written < 0 || (size_t)written >= sizeof(response))
+    //       {
+    //         Error_Handler();
+    //       }
+
+    //       if (SendResponse(response) != HAL_OK)
+    //       {
+    //         Error_Handler();
+    //       }
+    //     }
+
+    //     index = 0;
+    //     command_overflow = 0;
+    //   }
+    //   else if (index < sizeof(command) - 1)
+    //   {
+    //     command[index] = incoming;
+    //     index++;
+    //   }
+    //   else
+    //   { 
+    //     // Command exceeded buffer size
+    //     command_overflow = 1;
+    //   }
+    // }
   }
   /* USER CODE END 3 */
 }

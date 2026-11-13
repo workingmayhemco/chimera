@@ -3,6 +3,9 @@ SPDX-FileCopyrightText: 2026 Working Mayhem
 SPDX-License-Identifier: Apache-2.0
 */
 
+#include <stdbool.h>
+#include <stddef.h>
+
 #include "chimera_input.h"
 
 void ChimeraInput_Init(ChimeraInput *input)
@@ -18,7 +21,7 @@ ChimeraInputResult ChimeraInput_Feed(
 )
 {
     // Enter marks the end of a command
-    if (incoming == '\n' || incoming == '\n')
+    if (incoming == '\r' || incoming == '\n')
     {
         if (input->overflow)
         {

@@ -40,6 +40,16 @@ target_include_directories(test_chimera_runtime PRIVATE
     ../App/Inc
 )
 
+# Input test
+add_executable(test_chimera_input
+    test_chimera_input.c
+    ../App/Src/chimera_input.c
+)
+
+target_include_directories(test_chimera_input PRIVATE
+    ../App/Inc
+)
+
 # Register tests with CTest
 add_test(
     NAME chimera_commands
@@ -54,6 +64,11 @@ add_test(
 add_test(
     NAME chimera_runtime
     COMMAND test_chimera_runtime
+)
+
+add_test(
+    NAME chimera_input
+    COMMAND test_chimera_input
 )
 
 add_compile_options(

@@ -6,6 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 #ifndef CHIMERA_INPUT_H
 #define CHIMERA_INPUT_H
 
+#include <stdbool.h>
+#include <stddef.h>
+
 typedef struct
 {
     char command[16];
