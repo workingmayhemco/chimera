@@ -350,7 +350,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-HAL_StatusTypeDef SendResponse(const char *message)
+static HAL_StatusTypeDef SendResponse(const char *message)
 {
   return HAL_UART_Transmit(
     &hlpuart1,
