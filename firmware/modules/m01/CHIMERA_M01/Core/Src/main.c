@@ -21,10 +21,12 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
+#include "chimera_input.h"
+#include "chimera_runtime.h"
+#include "chimera_uart_rx.h"
 #include "stm32g4xx_nucleo.h"
-#include "chimera_commands.h"
 
 /* USER CODE END Includes */
 
@@ -48,6 +50,10 @@
 UART_HandleTypeDef hlpuart1;
 
 /* USER CODE BEGIN PV */
+static ChimeraUartRx uart_rx;
+static uint8_t uart_rx_byte;
+static volatile bool uart_rx_error = false;
+static volatile bool uart_rx_rearm_failed = false;
 
 /* USER CODE END PV */
 
@@ -56,8 +62,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
-HAL_StatusTypeDef SendResponse(const char *message);
-void ProcessCommand(const char *command);
+static HAL_StatusTypeDef SendResponse(const char *message);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -105,9 +110,9 @@ int main(void)
   // Create the message we want to send over UART
   uint8_t message[] = "CHIMERA M01 Boot\r\n";
   uint8_t incoming = 0;
-  uint8_t command[16];
-  uint8_t index = 0;
-  uint8_t command_overflow = 0;
+
+  ChimeraInput input;
+  ChimeraInput_Init(&input);
 
   // Transmit the message and capture the result
   HAL_StatusTypeDef result = HAL_UART_Transmit(
@@ -123,6 +128,19 @@ int main(void)
     Error_Handler();
   }
 
+  // Initialize the UART receive ring buffer
+  ChimeraUartRx_Init(&uart_rx);
+
+  // Start receiving one byte using interrupts
+  if (HAL_UART_Receive_IT(
+    &hlpuart1,
+    &uart_rx_byte,
+    1U
+  ) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -133,48 +151,83 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    // BSP_LED_Toggle(LED_GREEN);
-    // HAL_Delay(500);
-
-    // Wait for a single byte to be received over UART
-    HAL_StatusTypeDef result = HAL_UART_Receive(
-      &hlpuart1,
-      &incoming,
-      1,
-      HAL_MAX_DELAY
-    );
-
-    // Check whether we received "PING"
-    if (result == HAL_OK)
+    if (uart_rx_rearm_failed || uart_rx_error)
     {
-      if (incoming == '\r' || incoming == '\n')
-      {
-        command[index] = '\0';
+      Error_Handler();
+    }
+    if (uart_rx.overflow)
+    {
+      uint32_t irq_state = __get_PRIMASK();
+      __disable_irq();
 
-        if (command_overflow == 1)
+      if (uart_rx.overflow)
+      {
+        ChimeraInput_Init(&input);
+        ChimeraUartRx_AcknowledgeOverflow(&uart_rx);
+      }
+
+      // Restore the original interrup mask
+      __set_PRIMASK(irq_state);
+
+      continue;
+    }
+
+    // Retreive one byte from the ring buffer
+    if (ChimeraUartRx_Pop(&uart_rx, &incoming))
+    {
+      ChimeraInputResult input_result = ChimeraInput_Feed(
+        &input,
+        (char)incoming
+      );
+
+      if (input_result == CHIMERA_INPUT_READY || input_result == CHIMERA_INPUT_OVERFLOW)
+      {
+        uint32_t irq_state = __get_PRIMASK();
+        __disable_irq();
+
+        bool fatal = uart_rx_rearm_failed || uart_rx_error;
+        bool can_process = ChimeraUartRx_CanExecute(&uart_rx);
+
+        __set_PRIMASK(irq_state);
+
+        if (fatal)
         {
-          if (SendResponse("ERROR: COMMAND TOO LONG\r\n") != HAL_OK)
-          {
-            Error_Handler();
-          }
-        }
-        else if (index > 0)
-        {
-          ProcessCommand((const char *)command);
+          Error_Handler();
         }
 
-        index = 0;
-        command_overflow = 0;
+        if (!can_process)
+        {
+          continue;
+        }
       }
-      else if (index < sizeof(command) - 1)
+
+      if (input_result == CHIMERA_INPUT_READY)
       {
-        command[index] = incoming;
-        index++;
+        char response[128];
+
+        int written = ProcessCommand(
+          input.command,
+          HAL_GetTick(),
+          response,
+          sizeof(response)
+        );
+
+        if (written < 0 || (size_t)written >= sizeof(response))
+        {
+          Error_Handler();
+        }
+
+        if (SendResponse(response) != HAL_OK)
+        {
+          Error_Handler();
+        }
       }
-      else
-      { 
-        // Command exceeded buffer size
-        command_overflow = 1;
+      else if (input_result == CHIMERA_INPUT_OVERFLOW)
+      {
+        if (SendResponse("ERROR: COMMAND TOO LONG\r\n") != HAL_OK)
+        {
+          Error_Handler();
+        }
       }
     }
   }
@@ -297,7 +350,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-HAL_StatusTypeDef SendResponse(const char *message)
+static HAL_StatusTypeDef SendResponse(const char *message)
 {
   return HAL_UART_Transmit(
     &hlpuart1,
@@ -307,51 +360,32 @@ HAL_StatusTypeDef SendResponse(const char *message)
   );
 }
 
-void ProcessCommand(const char *command)
-{ 
-  ChimeraCommand parsed = ChimeraCommands_Parse(command);
-  HAL_StatusTypeDef result;
-
-  switch (parsed)
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  // Only handle our LPUART1 peripheral
+  if (huart->Instance != LPUART1)
   {
-    case CHIMERA_CMD_PING:
-      result = SendResponse("PONG\r\n");
-      break;
-    
-    case CHIMERA_CMD_HELP:
-      result = SendResponse("COMMANDS: PING, HELP, STATUS\r\n");
-      break;
-
-    case CHIMERA_CMD_STATUS:
-    {
-      uint32_t uptime_sec = HAL_GetTick() / 1000U;
-      uint32_t uptime_min = uptime_sec / 60U;
-      uint32_t hours = uptime_min / 60U;
-      uint32_t minutes = uptime_min % 60U;
-      uint32_t seconds = uptime_sec % 60U;
-      char response[128];
-
-      snprintf(
-        response,
-        sizeof(response),
-        "UPTIME: %02lu:%02lu:%02lu\r\n",
-        (unsigned long)hours,
-        (unsigned long)minutes,
-        (unsigned long)seconds
-      );
-      result = SendResponse(response);
-      break;
-    }
-    
-    default:
-      result = SendResponse("UNKNOWN COMMAND\r\n");
-      break;
+    return;
   }
 
-  if (result != HAL_OK)
+  // Let the application module handle the received byte
+  ChimeraUartRx_OnByte(&uart_rx, uart_rx_byte);
+
+  // Rearm reception regardless of discard state
+  if (HAL_UART_Receive_IT(huart, &uart_rx_byte, 1U) != HAL_OK)
   {
-    Error_Handler();
+    uart_rx_rearm_failed = true;
   }
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+  if (huart->Instance != LPUART1)
+  {
+    return;
+  }
+
+  uart_rx_error = true;
 }
 
 /* USER CODE END 4 */
