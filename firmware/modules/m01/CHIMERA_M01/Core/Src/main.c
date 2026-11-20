@@ -62,8 +62,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
-HAL_StatusTypeDef SendResponse(const char *message);
-// void ProcessCommand(const char *command, uint32_t uptime_ms);
+static HAL_StatusTypeDef SendResponse(const char *message);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -142,7 +141,7 @@ int main(void)
     Error_Handler();
   }
 
-  /* USER CODE END 2 *
+  /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -152,6 +151,10 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    if (uart_rx_rearm_failed || uart_rx_error)
+    {
+      Error_Handler();
+    }
     if (uart_rx.overflow)
     {
       uint32_t irq_state = __get_PRIMASK();
@@ -201,24 +204,6 @@ int main(void)
       if (input_result == CHIMERA_INPUT_READY)
       {
         char response[128];
-
-        uint32_t irq_state = __get_PRIMASK();
-        __disable_irq();
-
-        bool fatal = uart_rx_rearm_failed || uart_rx_error;
-        bool can_execute = ChimeraUartRx_CanExecute(&uart_rx);
-
-        __set_PRIMASK(irq_state);
-
-        if (fatal)
-        {
-          Error_Handler();
-        }
-
-        if (!can_execute)
-        {
-          continue;
-        }
 
         int written = ProcessCommand(
           input.command,
