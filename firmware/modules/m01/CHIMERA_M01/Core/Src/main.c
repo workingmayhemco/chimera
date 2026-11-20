@@ -22,9 +22,11 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
+#include <stdbool.h>
 // #include "chimera_commands.h"
 #include "chimera_input.h"
 #include "chimera_runtime.h"
+#include "chimera_rx_buffer.h"
 // #include "chimera_status.h"
 #include "stm32g4xx_nucleo.h"
 
@@ -50,6 +52,14 @@
 UART_HandleTypeDef hlpuart1;
 
 /* USER CODE BEGIN PV */
+static ChimeraRxBuffer uart_rx_queue;
+static uint8_t uart_rx_byte;
+static volatile bool uart_rx_overflow = false;
+static volatile bool uart_rx_rearm_failed = false;
+static volatile bool uart_rx_error = false;
+static volatile bool uart_rx_discarding = false;
+static volatile bool uart_rx_boundary_seen = false;
+static volatile bool uart_rx_resume_armed = false;
 
 /* USER CODE END PV */
 
@@ -127,6 +137,19 @@ int main(void)
     Error_Handler();
   }
 
+  // Initialize the UART receive ring buffer
+  ChimeraRx_Init(&uart_rx_queue);
+
+  // Start receiving one byte using interrupts
+  if (HAL_UART_Receive_IT(
+    &hlpuart1,
+    &uart_rx_byte,
+    1U
+  ) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
   /* USER CODE END 2 */
 
   /* Initialize led */
@@ -143,105 +166,111 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    // BSP_LED_Toggle(LED_GREEN);
-    // HAL_Delay(500);
-
-    // Wait for a single byte to be received over UART
-    // HAL_StatusTypeDef result = HAL_UART_Receive(
-    //   &hlpuart1,
-    //   &incoming,
-    //   1,
-    //   HAL_MAX_DELAY
-    // );
-    if (HAL_UART_Receive(&hlpuart1, &incoming, 1, HAL_MAX_DELAY) != HAL_OK)
+    // Stop if incoming UART data may have been lost
+    if (uart_rx_rearm_failed || uart_rx_error)
     {
       Error_Handler();
     }
-    
-    // Check whether we received "PING"
-    ChimeraInputResult input_result = ChimeraInput_Feed(
-      &input,
-      (char)incoming
-    );
 
-    if (input_result == CHIMERA_INPUT_READY)
+    if (uart_rx_overflow)
     {
-      char response[128];
+      // // The current command is no longer trustworthy
+      // ChimeraInput_Invalidate(&input);
 
-      int written = ProcessCommand(
-        input.command,
-        HAL_GetTick(),
-        response,
-        sizeof(response)
+      // if (uart_rx_boundary_seen)
+      // {
+      //   // Save the previous interrupt state
+      //   uint32_t irq_state = __get_PRIMASK();
+
+      //   // Prevent the UART ISR from modifying share state
+      //   __disable_irq();
+
+      //   if (uart_rx_boundary_seen)
+      //   {
+      //     // Discard any queued bytes from before the overlow
+      //     ChimeraRx_Init(&uart_rx_queue);
+
+      //     uart_rx_boundary_seen = false;
+      //     uart_rx_overflow = false;
+
+      //     // Acknowledge recovery last
+      //     uart_rx_discarding = false;
+      //   }
+
+      //   // Restore interrupts if they were enabled
+      //   if (irq_state == 0U)
+      //   {
+      //     __enable_irq();
+      //   }
+      // }
+      uint32_t irq_state = __get_PRIMASK();
+
+      __disable_irq();
+
+      if (uart_rx_overflow)
+      {
+        // Discard bytes queued before the overflow
+        ChimeraRx_Init(&uart_rx_queue);
+
+        // Discard the partially received command
+        ChimeraInput_Init(&input);
+
+        // Cleanup complete
+        uart_rx_overflow = false;
+
+        // ISR remains in discard mode until a NEW terminator
+        uart_rx_resume_armed = true;
+      }
+
+      // Restore the original interrup mask
+      __set_PRIMASK(irq_state);
+
+      continue;
+    }
+
+    // Retreive one byte from the ring buffer
+    if (ChimeraRx_Pop(&uart_rx_queue, &incoming))
+    {
+      ChimeraInputResult input_result = ChimeraInput_Feed(
+        &input,
+        (char)incoming
       );
 
-      if (written < 0 || (size_t)written >= sizeof(response))
+      if (input_result == CHIMERA_INPUT_READY)
       {
-        Error_Handler();
-      }
+        char response[128];
+        
+        // Check for a receive failure before executing
+        if (uart_rx_overflow || uart_rx_rearm_failed || uart_rx_error)
+        {
+          Error_Handler();
+        }
 
-      if (SendResponse(response) != HAL_OK)
+        int written = ProcessCommand(
+          input.command,
+          HAL_GetTick(),
+          response,
+          sizeof(response)
+        );
+
+        if (written < 0 || (size_t)written >= sizeof(response))
+        {
+          Error_Handler();
+        }
+
+        if (SendResponse(response) != HAL_OK)
+        {
+          Error_Handler();
+        }
+      }
+      else if (input_result == CHIMERA_INPUT_OVERFLOW)
       {
-        Error_Handler();
+        if (SendResponse("ERROR: COMMAND TOO LONG\r\n") != HAL_OK)
+        {
+          Error_Handler();
+        }
       }
     }
-    else if (input_result == CHIMERA_INPUT_OVERFLOW)
-    {
-      if (SendResponse("ERROR: COMMAND TOO LONG\r\n") != HAL_OK)
-      {
-        Error_Handler();
-      }
-    }
-    // if (result == HAL_OK)
-    // {
-    //   if (incoming == '\r' || incoming == '\n')
-    //   {
-    //     command[index] = '\0';
-
-    //     if (command_overflow == 1)
-    //     {
-    //       if (SendResponse("ERROR: COMMAND TOO LONG\r\n") != HAL_OK)
-    //       {
-    //         Error_Handler();
-    //       }
-    //     }
-    //     else if (index > 0)
-    //     {
-    //       // ProcessCommand((const char *)command, HAL_GetTick());
-    //       char response[128];
-
-    //       int written = ProcessCommand(
-    //         (const char *)command,
-    //         HAL_GetTick(),
-    //         response,
-    //         sizeof(response)
-    //       );
-
-    //       if (written < 0 || (size_t)written >= sizeof(response))
-    //       {
-    //         Error_Handler();
-    //       }
-
-    //       if (SendResponse(response) != HAL_OK)
-    //       {
-    //         Error_Handler();
-    //       }
-    //     }
-
-    //     index = 0;
-    //     command_overflow = 0;
-    //   }
-    //   else if (index < sizeof(command) - 1)
-    //   {
-    //     command[index] = incoming;
-    //     index++;
-    //   }
-    //   else
-    //   { 
-    //     // Command exceeded buffer size
-    //     command_overflow = 1;
-    //   }
-    // }
   }
   /* USER CODE END 3 */
 }
@@ -372,52 +401,54 @@ HAL_StatusTypeDef SendResponse(const char *message)
   );
 }
 
-// void ProcessCommand(const char *command, uint32_t uptime_ms)
-// { 
-//   ChimeraCommand parsed = ChimeraCommands_Parse(command);
-//   HAL_StatusTypeDef result;
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  // Only handle our LPUART1 peripheral
+  if (huart->Instance != LPUART1)
+  {
+    return;
+  }
 
-//   switch (parsed)
-//   {
-//     case CHIMERA_CMD_PING:
-//       result = SendResponse("PONG\r\n");
-//       break;
-    
-//     case CHIMERA_CMD_HELP:
-//       result = SendResponse("COMMANDS: PING, HELP, STATUS\r\n");
-//       break;
+  if (uart_rx_discarding)
+  {
+    // Look for the end of the damaged command
+    if (uart_rx_resume_armed && (uart_rx_byte == '\r' || uart_rx_byte == '\n'))
+    {
+      uart_rx_resume_armed = false;
+      uart_rx_discarding = false;
+    }
+  }
+  else
+  {
+    // Store the byte received by HAL
+    if (!ChimeraRx_Push(&uart_rx_queue, uart_rx_byte))
+    {
+      uart_rx_discarding = true;
+      uart_rx_overflow = true;
 
-//     case CHIMERA_CMD_STATUS:
-//     {
-//       char response[128];
+      // if (uart_rx_byte == '\r' || uart_rx_byte == '\n')
+      // {
+      //   uart_rx_boundary_seen = true;
+      // }
+    }
+  }
 
-//       int written = FormatStatus(
-//         uptime_ms,
-//         response,
-//         sizeof(response)
-//       );
+  // Rearm reception regardless of discard state
+  if (HAL_UART_Receive_IT(huart, &uart_rx_byte, 1U) != HAL_OK)
+  {
+    uart_rx_rearm_failed = true;
+  }
+}
 
-//       if (written < 0 || (size_t)written >= sizeof(response))
-//       {
-//         Error_Handler();
-//       }
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+  if (huart->Instance != LPUART1)
+  {
+    return;
+  }
 
-//       // FormatStatus(uptime_ms, response, sizeof(response));
-
-//       result = SendResponse(response);
-//       break;
-//     }
-    
-//     default:
-//       result = SendResponse("UNKNOWN COMMAND\r\n");
-//       break;
-//   }
-
-//   if (result != HAL_OK)
-//   {
-//     Error_Handler();
-//   }
-// }
+  uart_rx_error = true;
+}
 
 /* USER CODE END 4 */
 

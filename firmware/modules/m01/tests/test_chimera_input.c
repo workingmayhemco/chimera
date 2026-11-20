@@ -100,5 +100,24 @@ int main(void)
 
   printf("PASS: ChimeraIn put basic command\n");
 
+  // Simulate data loss during a command
+  ChimeraInput_Init(&input);
+
+  assert(ChimeraInput_Feed(&input, 'P') == CHIMERA_INPUT_INCOMPLETE);
+  assert(ChimeraInput_Feed(&input, 'I') == CHIMERA_INPUT_INCOMPLETE);
+
+  // Simulate UART reporting lost data
+  ChimeraInput_Invalidate(&input);
+
+  assert(input.discarding == true);
+  assert(input.index == 0);
+
+  // Reming bytes of the damaged command
+  assert(ChimeraInput_Feed(&input, 'N') == CHIMERA_INPUT_INCOMPLETE);
+  assert(ChimeraInput_Feed(&input, 'G') == CHIMERA_INPUT_INCOMPLETE);
+  assert(ChimeraInput_Feed(&input, '\r') == CHIMERA_INPUT_INCOMPLETE);
+
+  assert(input.discarding == false);
+
   return 0;
 }

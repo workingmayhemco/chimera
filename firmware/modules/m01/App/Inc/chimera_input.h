@@ -14,6 +14,7 @@ typedef struct
     char command[16];
     size_t index;
     bool overflow;
+    bool discarding;
 } ChimeraInput;
 
 typedef enum
@@ -24,6 +25,8 @@ typedef enum
 } ChimeraInputResult;
 
 void ChimeraInput_Init(ChimeraInput *input);
+
+void ChimeraInput_Invalidate(ChimeraInput *input);
 
 ChimeraInputResult ChimeraInput_Feed(
     ChimeraInput *input,

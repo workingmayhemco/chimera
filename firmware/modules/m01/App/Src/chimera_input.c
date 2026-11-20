@@ -13,6 +13,15 @@ void ChimeraInput_Init(ChimeraInput *input)
     input->command[0] = '\0';
     input->index = 0;
     input->overflow = false;
+    input->discarding = false;
+}
+
+void ChimeraInput_Invalidate(ChimeraInput *input)
+{
+    input->index = 0;
+    input->overflow = false;
+    input->command[0] = '\0';
+    input->discarding = true;
 }
 
 ChimeraInputResult ChimeraInput_Feed(
@@ -20,6 +29,16 @@ ChimeraInputResult ChimeraInput_Feed(
     char incoming
 )
 {
+    if (input->discarding)
+    {
+        if (incoming == '\r' || incoming == '\n')
+        {
+            input->discarding = false;
+        }
+
+        return CHIMERA_INPUT_INCOMPLETE;
+    }
+    
     // Enter marks the end of a command
     if (incoming == '\r' || incoming == '\n')
     {

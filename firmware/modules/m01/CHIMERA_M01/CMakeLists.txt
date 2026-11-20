@@ -49,6 +49,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ../App/Src/chimera_status.c
     ../App/Src/chimera_runtime.c
     ../App/Src/chimera_input.c
+    ../App/Src/chimera_rx_buffer.c
 )
 
 # Add include paths
