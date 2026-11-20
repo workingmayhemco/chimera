@@ -23,11 +23,9 @@
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include <stdbool.h>
-// #include "chimera_commands.h"
 #include "chimera_input.h"
 #include "chimera_runtime.h"
-#include "chimera_rx_buffer.h"
-// #include "chimera_status.h"
+#include "chimera_uart_rx.h"
 #include "stm32g4xx_nucleo.h"
 
 /* USER CODE END Includes */
@@ -52,14 +50,10 @@
 UART_HandleTypeDef hlpuart1;
 
 /* USER CODE BEGIN PV */
-static ChimeraRxBuffer uart_rx_queue;
+static ChimeraUartRx uart_rx;
 static uint8_t uart_rx_byte;
-static volatile bool uart_rx_overflow = false;
-static volatile bool uart_rx_rearm_failed = false;
 static volatile bool uart_rx_error = false;
-static volatile bool uart_rx_discarding = false;
-static volatile bool uart_rx_boundary_seen = false;
-static volatile bool uart_rx_resume_armed = false;
+static volatile bool uart_rx_rearm_failed = false;
 
 /* USER CODE END PV */
 
@@ -117,9 +111,7 @@ int main(void)
   // Create the message we want to send over UART
   uint8_t message[] = "CHIMERA M01 Boot\r\n";
   uint8_t incoming = 0;
-  // uint8_t command[16];
-  // uint8_t index = 0;
-  // uint8_t command_overflow = 0;
+
   ChimeraInput input;
   ChimeraInput_Init(&input);
 
@@ -138,7 +130,7 @@ int main(void)
   }
 
   // Initialize the UART receive ring buffer
-  ChimeraRx_Init(&uart_rx_queue);
+  ChimeraUartRx_Init(&uart_rx);
 
   // Start receiving one byte using interrupts
   if (HAL_UART_Receive_IT(
@@ -150,13 +142,7 @@ int main(void)
     Error_Handler();
   }
 
-  /* USER CODE END 2 */
-
-  /* Initialize led */
-  BSP_LED_Init(LED_GREEN);
-
-  /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
-  BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
+  /* USER CODE END 2 *
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -166,60 +152,15 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    // Stop if incoming UART data may have been lost
-    if (uart_rx_rearm_failed || uart_rx_error)
+    if (uart_rx.overflow)
     {
-      Error_Handler();
-    }
-
-    if (uart_rx_overflow)
-    {
-      // // The current command is no longer trustworthy
-      // ChimeraInput_Invalidate(&input);
-
-      // if (uart_rx_boundary_seen)
-      // {
-      //   // Save the previous interrupt state
-      //   uint32_t irq_state = __get_PRIMASK();
-
-      //   // Prevent the UART ISR from modifying share state
-      //   __disable_irq();
-
-      //   if (uart_rx_boundary_seen)
-      //   {
-      //     // Discard any queued bytes from before the overlow
-      //     ChimeraRx_Init(&uart_rx_queue);
-
-      //     uart_rx_boundary_seen = false;
-      //     uart_rx_overflow = false;
-
-      //     // Acknowledge recovery last
-      //     uart_rx_discarding = false;
-      //   }
-
-      //   // Restore interrupts if they were enabled
-      //   if (irq_state == 0U)
-      //   {
-      //     __enable_irq();
-      //   }
-      // }
       uint32_t irq_state = __get_PRIMASK();
-
       __disable_irq();
 
-      if (uart_rx_overflow)
+      if (uart_rx.overflow)
       {
-        // Discard bytes queued before the overflow
-        ChimeraRx_Init(&uart_rx_queue);
-
-        // Discard the partially received command
         ChimeraInput_Init(&input);
-
-        // Cleanup complete
-        uart_rx_overflow = false;
-
-        // ISR remains in discard mode until a NEW terminator
-        uart_rx_resume_armed = true;
+        ChimeraUartRx_AcknowledgeOverflow(&uart_rx);
       }
 
       // Restore the original interrup mask
@@ -229,21 +170,54 @@ int main(void)
     }
 
     // Retreive one byte from the ring buffer
-    if (ChimeraRx_Pop(&uart_rx_queue, &incoming))
+    if (ChimeraUartRx_Pop(&uart_rx, &incoming))
     {
       ChimeraInputResult input_result = ChimeraInput_Feed(
         &input,
         (char)incoming
       );
 
+      if (input_result == CHIMERA_INPUT_READY || input_result == CHIMERA_INPUT_OVERFLOW)
+      {
+        uint32_t irq_state = __get_PRIMASK();
+        __disable_irq();
+
+        bool fatal = uart_rx_rearm_failed || uart_rx_error;
+        bool can_process = ChimeraUartRx_CanExecute(&uart_rx);
+
+        __set_PRIMASK(irq_state);
+
+        if (fatal)
+        {
+          Error_Handler();
+        }
+
+        if (!can_process)
+        {
+          continue;
+        }
+      }
+
       if (input_result == CHIMERA_INPUT_READY)
       {
         char response[128];
-        
-        // Check for a receive failure before executing
-        if (uart_rx_overflow || uart_rx_rearm_failed || uart_rx_error)
+
+        uint32_t irq_state = __get_PRIMASK();
+        __disable_irq();
+
+        bool fatal = uart_rx_rearm_failed || uart_rx_error;
+        bool can_execute = ChimeraUartRx_CanExecute(&uart_rx);
+
+        __set_PRIMASK(irq_state);
+
+        if (fatal)
         {
           Error_Handler();
+        }
+
+        if (!can_execute)
+        {
+          continue;
         }
 
         int written = ProcessCommand(
@@ -409,29 +383,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     return;
   }
 
-  if (uart_rx_discarding)
-  {
-    // Look for the end of the damaged command
-    if (uart_rx_resume_armed && (uart_rx_byte == '\r' || uart_rx_byte == '\n'))
-    {
-      uart_rx_resume_armed = false;
-      uart_rx_discarding = false;
-    }
-  }
-  else
-  {
-    // Store the byte received by HAL
-    if (!ChimeraRx_Push(&uart_rx_queue, uart_rx_byte))
-    {
-      uart_rx_discarding = true;
-      uart_rx_overflow = true;
-
-      // if (uart_rx_byte == '\r' || uart_rx_byte == '\n')
-      // {
-      //   uart_rx_boundary_seen = true;
-      // }
-    }
-  }
+  // Let the application module handle the received byte
+  ChimeraUartRx_OnByte(&uart_rx, uart_rx_byte);
 
   // Rearm reception regardless of discard state
   if (HAL_UART_Receive_IT(huart, &uart_rx_byte, 1U) != HAL_OK)

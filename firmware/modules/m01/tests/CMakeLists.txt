@@ -67,6 +67,17 @@ target_include_directories(test_chimera_rx_buffer PRIVATE
     ../App/Inc
 )
 
+# UART RX test
+add_executable(test_chimera_uart_rx
+    test_chimera_uart_rx.c
+    ../App/Src/chimera_uart_rx.c
+    ../App/Src/chimera_rx_buffer.c
+    ../App/Src/chimera_input.c
+)
+
+target_include_directories(test_chimera_uart_rx PRIVATE
+    ../App/Inc
+)
 add_test(
     NAME chimera_rx_buffer
     COMMAND test_chimera_rx_buffer
@@ -91,5 +102,10 @@ add_test(
 add_test(
     NAME chimera_input
     COMMAND test_chimera_input
+)
+
+add_test(
+    NAME chimera_uart_rx
+    COMMAND test_chimera_uart_rx
 )
 
